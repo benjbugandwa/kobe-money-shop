@@ -9,7 +9,7 @@
         </h2>
 
         <p class="text-gray-400 mb-6">
-            La page que vous recherchez est introuvable.
+            La page que vous recherchez est introuvable actuellement.
         </p>
 
         <a href="{{ url('/dashboard') }}"

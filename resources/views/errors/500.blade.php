@@ -9,7 +9,7 @@
         </h2>
 
         <p class="text-gray-400 mb-6">
-            Une erreur imprévue est survenue. Veuillez réessayer plus tard.
+            Une erreur est survenue. Veuillez réessayer plus tard.
         </p>
 
         <a href="{{ url('/dashboard') }}"
