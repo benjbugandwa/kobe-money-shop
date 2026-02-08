@@ -1,0 +1,2 @@
+Cette application permet de se connecter avec Google, En utilisant Laravel socialite.
+Elle utilise une base de donnees PostgreSQL.
