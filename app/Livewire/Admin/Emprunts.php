@@ -2,50 +2,41 @@
 
 namespace App\Livewire\Admin;
 
-use Livewire\Component;
-use Livewire\WithPagination;
+use App\Models\Cycle;
 use App\Models\Emprunt;
 use App\Models\User;
-use App\Models\Cotisation;
-use Illuminate\Support\Facades\DB;
 use App\Services\CaisseService;
+use App\Services\EmpruntPenaltyService;
+use Carbon\Carbon;
+use Livewire\Component;
+use Livewire\WithPagination;
 
 class Emprunts extends Component
 {
-    protected CaisseService $caisseService;
     use WithPagination;
 
     protected $paginationTheme = 'bootstrap';
 
     public $showModal = false;
-
     public $user_id;
     public $date_emprunt;
     public $date_echeance;
     public $montant_initial;
-    public $taux_interet = 5; // 👈 par défaut 5%
+    public $taux_interet = 5;
     public $montant_final;
     public $observation;
 
     public $confirmingStatutChange = false;
     public $empruntIdToUpdate;
 
-    //Filtre
     public $filterStatut = '';
     public $filterUser = '';
 
-
-
-    public function mount(CaisseService $caisseService)
-    {
-        $this->caisseService = $caisseService;
-    }
-
-
-
     public function render()
     {
-        $query = Emprunt::with('user')
+        app(EmpruntPenaltyService::class)->refreshOpenLoans();
+
+        $query = Emprunt::with(['user', 'cycle'])
             ->orderBy('date_emprunt', 'desc');
 
         if ($this->filterStatut) {
@@ -58,78 +49,92 @@ class Emprunts extends Component
 
         return view('livewire.admin.emprunts', [
             'emprunts' => $query->paginate(10),
-            'users'    => User::orderBy('name')->get(),
+            'users' => User::orderBy('name')->get(),
+            'cycleEnCours' => Cycle::current(),
         ]);
     }
 
-
-
-
-
-
-
-
-    public function updatedMontantInitial()
+    public function updatedMontantInitial(): void
     {
         $this->calculateMontantFinal();
     }
 
-    public function updatedTauxInteret()
+    public function updatedTauxInteret(): void
     {
         $this->calculateMontantFinal();
     }
 
-    private function calculateMontantFinal()
+    public function updatedDateEmprunt($value): void
     {
-        if ($this->montant_initial && $this->taux_interet) {
-            $this->montant_final =
-                $this->montant_initial +
-                ($this->montant_initial * $this->taux_interet / 100);
+        if ($value) {
+            $this->date_echeance = Carbon::parse($value)
+                ->addDays(30)
+                ->toDateString();
         }
     }
 
-    public function save()
+    public function openModal(): void
     {
+        $this->resetValidation();
+        $this->reset([
+            'user_id',
+            'date_echeance',
+            'montant_initial',
+            'montant_final',
+            'observation',
+        ]);
 
+        $this->date_emprunt = now()->toDateString();
+        $this->date_echeance = now()->addDays(30)->toDateString();
+        $this->taux_interet = 5;
+        $this->showModal = true;
+    }
 
-
-
+    public function save(): void
+    {
+        $this->calculateMontantFinal();
 
         $this->validate([
-            'user_id'          => 'required|exists:users,id',
-            'date_emprunt'     => 'required|date|before_or_equal:today',
-            'date_echeance'    => 'required|date|after:date_emprunt',
-            'montant_initial'  => 'required|numeric|min:20',
-            'taux_interet'     => 'required|numeric|min:0',
-            'montant_final'    => 'required|numeric|min:1',
-            'observation'      => 'nullable|string|max:500',
+            'user_id' => 'required|exists:users,id',
+            'date_emprunt' => 'required|date|before_or_equal:today',
+            'date_echeance' => 'required|date|after:date_emprunt',
+            'montant_initial' => 'required|numeric|min:20',
+            'taux_interet' => 'required|numeric|min:0',
+            'montant_final' => 'required|numeric|min:1',
+            'observation' => 'nullable|string|max:500',
         ]);
 
-        \App\Models\Emprunt::create([
-            'user_id'          => $this->user_id,
-            'date_emprunt'     => $this->date_emprunt,
-            'date_echeance'    => $this->date_echeance,
-            'montant_initial'  => $this->montant_initial,
-            'taux_interet'     => $this->taux_interet,
-            'montant_final'    => $this->montant_final,
-            'statut_emprunt'   => 'en_cours',
-            'montant_penalite' => 0,
-            'observation'      => $this->observation,
-        ]);
+        $cycle = Cycle::current();
 
+        if (! $cycle) {
+            $this->toast('error', 'Aucun cycle en cours. Creez un cycle avant d enregistrer un emprunt.');
+            return;
+        }
 
         $solde = $this->soldeCaisse();
 
-        if ($this->montant_initial > $solde) {
+        if ((float) $this->montant_initial > $solde) {
             $this->addError(
-                'newMontantInitial',
-                'Le montant demandé dépasse le solde actuel de la caisse ('
+                'montant_initial',
+                'Le montant demande depasse le solde actuel de la caisse ('
                     . number_format($solde, 0, ',', ' ')
                     . ' USD).'
             );
             return;
         }
 
+        Emprunt::create([
+            'user_id' => $this->user_id,
+            'cycle_id' => $cycle->id,
+            'date_emprunt' => $this->date_emprunt,
+            'date_echeance' => $this->date_echeance,
+            'montant_initial' => $this->montant_initial,
+            'taux_interet' => $this->taux_interet,
+            'montant_final' => $this->montant_final,
+            'statut_emprunt' => 'en_cours',
+            'montant_penalite' => 0,
+            'observation' => $this->observation,
+        ]);
 
         $this->reset([
             'user_id',
@@ -142,19 +147,20 @@ class Emprunts extends Component
         ]);
 
         $this->date_emprunt = now()->toDateString();
+        $this->date_echeance = now()->addDays(30)->toDateString();
         $this->taux_interet = 5;
         $this->showModal = false;
+        $this->resetPage();
 
-        session()->flash('success', 'Emprunt enregistré avec succès.');
+        $this->toast('success', 'Emprunt enregistre avec succes.');
     }
 
-    public function confirmStatutChange($empruntId)
+    public function confirmStatutChange($empruntId): void
     {
-        $emprunt = \App\Models\Emprunt::findOrFail($empruntId);
+        $emprunt = Emprunt::findOrFail($empruntId);
 
-        // ❌ Un admin ne peut pas modifier son propre emprunt
         if ($emprunt->user_id === auth()->id()) {
-            session()->flash('error', "Vous ne pouvez pas modifier votre propre emprunt.");
+            $this->toast('error', 'Vous ne pouvez pas modifier votre propre emprunt.');
             return;
         }
 
@@ -162,102 +168,60 @@ class Emprunts extends Component
         $this->confirmingStatutChange = true;
     }
 
-    public function changeStatut()
+    public function changeStatut(): void
     {
-        $emprunt = \App\Models\Emprunt::findOrFail($this->empruntIdToUpdate);
+        app(EmpruntPenaltyService::class)->refreshOpenLoans();
+
+        $emprunt = Emprunt::findOrFail($this->empruntIdToUpdate);
 
         if ($emprunt->user_id === auth()->id()) {
             abort(403);
         }
 
-        $interets = $emprunt->calculerInterets();
-
         $emprunt->update([
-            'statut_emprunt'     => 'remboursé',
-            'interets_payes'   => $interets,
+            'statut_emprunt' => 'remboursé',
+            'interets_payes' => $emprunt->calculerInterets(),
             'statut_modifie_par' => auth()->id(),
-            'statut_modifie_le'  => now(),
+            'statut_modifie_le' => now(),
         ]);
 
         $this->confirmingStatutChange = false;
         $this->empruntIdToUpdate = null;
 
-        session()->flash('success', 'Statut de l’emprunt mis à jour.');
+        $this->toast('success', 'Statut de l emprunt mis a jour.');
     }
 
-    public function updatedFilterStatut()
+    public function updatedFilterStatut(): void
     {
         $this->resetPage();
     }
 
-    public function updatedFilterUser()
+    public function updatedFilterUser(): void
     {
         $this->resetPage();
     }
 
-    public function openModal()
+    protected function soldeCaisse(): float
     {
-        $this->reset([
-            'user_id',
-            'date_echeance',
-            'montant_initial',
-            'montant_final',
-            'observation',
-        ]);
-
-        $this->date_emprunt = now()->toDateString(); // 👈 aujourd’hui
-        $this->taux_interet = 5; // sécurité
-        $this->showModal = true;
+        return app(CaisseService::class)->soldeCaisse();
     }
 
-    public function updatedDateEmprunt($value)
+    private function calculateMontantFinal(): void
     {
-        if ($value) {
-            $this->date_echeance = \Carbon\Carbon::parse($value)
-                ->addDays(30)
-                ->toDateString();
+        if ($this->montant_initial !== null && $this->taux_interet !== null) {
+            $this->montant_final = round(
+                (float) $this->montant_initial
+                + ((float) $this->montant_initial * (float) $this->taux_interet / 100),
+                2
+            );
         }
     }
 
-    //Verifie la disponibilité de la caisse
-    protected function soldeCaisse1(): float
+    private function toast(string $type, string $message): void
     {
-        $totalCotisations = Cotisation::sum('montant');
-
-        $totalEmprunts = Emprunt::whereIn('statut_emprunt', [
-            'accorde',
-            'en_cours'
-        ])->sum('montant_initial');
-
-        return $totalCotisations - $totalEmprunts;
-    }
-
-
-
-    /*
-        Quand un emprunt est remboursé, la caisse reçoit :
-        Ces montants augmentent le solde réel de la caisse.
-        Donc:
-
-        Le solde réel = Cotisations
-                        + Intérêts encaissés
-                        + Pénalités encaissées
-                        - Capital encore sorti (emprunts en cours ou accordés)
-    */
-    protected function soldeCaisse(): float
-    {
-        $totalCotisations = Cotisation::sum('montant');
-
-        $capitalEncoreSorti = Emprunt::whereIn('statut_emprunt', [
-            'accorde',
-            'en_cours'
-        ])->sum('montant_initial');
-
-        $interetsEtPenalitesEncaissees = Emprunt::where('statut_emprunt', 'rembourse')
-            ->sum(DB::raw('montant_final - montant_initial + COALESCE(montant_penalite,0)'));
-
-        return $totalCotisations
-            + $interetsEtPenalitesEncaissees
-            - $capitalEncoreSorti;
+        $this->dispatch('toast', [
+            'type' => $type,
+            'message' => $message,
+        ]);
     }
 }

@@ -24,6 +24,7 @@ class User extends Authenticatable
         'google_id',
         'google_token',
         'google_refresh_token',
+        'user_role',
     ];
 
     /**
@@ -57,5 +58,10 @@ class User extends Authenticatable
     public function emprunts()
     {
         return $this->hasMany(\App\Models\Emprunt::class);
+    }
+
+    public function cyclesCreated()
+    {
+        return $this->hasMany(\App\Models\Cycle::class, 'created_by');
     }
 }

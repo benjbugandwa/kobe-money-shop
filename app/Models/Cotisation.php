@@ -16,6 +16,7 @@ class Cotisation extends Model
         'montant',
         'libelle',
         'user_id',
+        'cycle_id',
     ];
 
     protected $casts = [
@@ -30,5 +31,10 @@ class Cotisation extends Model
     public function user()
     {
         return $this->belongsTo(User::class);
+    }
+
+    public function cycle()
+    {
+        return $this->belongsTo(Cycle::class);
     }
 }

@@ -4,10 +4,7 @@ use Illuminate\Support\Facades\Route;
 use Laravel\Socialite\Socialite;
 use Illuminate\Support\Facades\Auth;
 use App\Models\User;
-use App\Livewire\Admin\Users;
-use App\Livewire\Admin\Cotisations;
-use App\Livewire\Admin\Emprunts;
-use App\Model\Cotisation;
+use App\Http\Controllers\ExportDataController;
 use App\Http\Controllers\RapportController;
 
 Route::get('/', function () {
@@ -41,7 +38,7 @@ Route::get('/dashboard', function () {
 
     $user = Auth::user();
     return view('dashboard', ['user' => $user]);
-})->middleware('auth');
+})->middleware('auth')->name('dashboard');
 
 Route::post('/logout', function () {
     Auth::logout();
@@ -80,6 +77,17 @@ Route::get('/admin/emprunts', function () {
 
     return view('emprunts');
 })->middleware(['auth', 'admin'])->name('admin.emprunts');
+
+Route::get('/admin/cycles', function () {
+    return view('cycles');
+})->middleware(['auth', 'admin'])->name('admin.cycles');
+
+Route::middleware(['auth', 'admin'])->group(function () {
+    Route::get('/admin/export-data', [ExportDataController::class, 'index'])
+        ->name('admin.export-data');
+    Route::post('/admin/export-data', [ExportDataController::class, 'export'])
+        ->name('admin.export-data.download');
+});
 
 Route::middleware(['auth'])->group(function () {
     Route::get('/rapports', [RapportController::class, 'index'])->name('rapports.index');

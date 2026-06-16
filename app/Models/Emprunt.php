@@ -22,6 +22,9 @@ class Emprunt extends Model
         'statut_emprunt',
         'observation',
         'user_id',
+        'cycle_id',
+        'statut_modifie_par',
+        'statut_modifie_le',
     ];
 
     protected $casts = [
@@ -29,8 +32,9 @@ class Emprunt extends Model
         'date_echeance'     => 'date',
         'montant_initial'   => 'decimal:2',
         'taux_interet'      => 'decimal:2',
-        'montant_final'     => 'decimal:2',
-        'montant_penalite'  => 'decimal:2',
+            'montant_final'     => 'decimal:2',
+            'montant_penalite'  => 'decimal:2',
+            'statut_modifie_le' => 'datetime',
     ];
 
     /* =======================
@@ -40,6 +44,11 @@ class Emprunt extends Model
     public function user()
     {
         return $this->belongsTo(User::class);
+    }
+
+    public function cycle()
+    {
+        return $this->belongsTo(Cycle::class);
     }
 
     /* =======================
@@ -66,9 +75,11 @@ class Emprunt extends Model
 
     public function calculerMontantFinal(): void
     {
+        $this->montant_penalite ??= 0;
         $this->montant_final =
             $this->montant_initial +
-            ($this->montant_initial * $this->taux_interet / 100);
+            ($this->montant_initial * $this->taux_interet / 100) +
+            $this->montant_penalite;
     }
 
     public function appliquerPenalite(float $montant): void

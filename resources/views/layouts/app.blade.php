@@ -89,6 +89,14 @@
                         Emprunts
                     </a>
 
+                    <a href="{{ route('admin.cycles') }}" class="block px-4 py-2 hover:bg-gray-700">
+                        Cloturer le cycle en cours
+                    </a>
+
+                    <a href="{{ route('admin.export-data') }}" class="block px-4 py-2 hover:bg-gray-700">
+                        Exporter les donnees
+                    </a>
+
                     <a href="{{ route('admin.users') }}" class="block px-4 py-2 hover:bg-gray-700">
                         Utilisateurs
                     </a>
@@ -148,8 +156,8 @@
     <div x-data="{ show: false, message: '', type: '' }"
         x-on:toast.window="
         show = true;
-        message = $event.detail.message;
-        type = $event.detail.type;
+        message = $event.detail.message || ($event.detail[0] && $event.detail[0].message) || '';
+        type = $event.detail.type || ($event.detail[0] && $event.detail[0].type) || 'success';
         setTimeout(() => show = false, 3000);
     "
         x-show="show" x-transition class="fixed bottom-5 right-5 px-4 py-3 rounded shadow-lg text-white"
@@ -157,6 +165,19 @@
         <span x-text="message"></span>
     </div>
     <!-- En Toast Notifications -->
+
+    @if (session('success') || session('error'))
+        <script>
+            window.addEventListener('DOMContentLoaded', () => {
+                window.dispatchEvent(new CustomEvent('toast', {
+                    detail: {
+                        type: @json(session('success') ? 'success' : 'error'),
+                        message: @json(session('success') ?? session('error'))
+                    }
+                }));
+            });
+        </script>
+    @endif
 
 </body>
 

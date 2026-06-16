@@ -5,6 +5,7 @@ namespace App\Livewire\Admin;
 use Livewire\Component;
 use Livewire\WithPagination;
 use App\Models\Cotisation;
+use App\Models\Cycle;
 
 class Cotisations extends Component
 {
@@ -27,7 +28,7 @@ class Cotisations extends Component
 
     public function render()
     {
-        $query = \App\Models\Cotisation::with('user');
+        $query = \App\Models\Cotisation::with(['user', 'cycle']);
 
         // Filtre par membre
         if ($this->userId) {
@@ -50,6 +51,7 @@ class Cotisations extends Component
                 ->paginate(10),
 
             'users' => \App\Models\User::orderBy('name')->get(),
+            'cycleEnCours' => Cycle::current(),
         ]);
     }
 
@@ -138,8 +140,20 @@ class Cotisations extends Component
     {
         $this->validate();
 
+        $cycle = Cycle::current();
+
+        if (! $cycle) {
+            $this->dispatch('toast', [
+                'type' => 'error',
+                'message' => 'Aucun cycle en cours. Creez un cycle avant d enregistrer une cotisation.'
+            ]);
+
+            return;
+        }
+
         \App\Models\Cotisation::create([
             'user_id' => $this->newUserId,
+            'cycle_id' => $cycle->id,
             'date_cotisation' => $this->newDateCotisation,
             'montant' => $this->newMontant,
             'libelle' => $this->newLibelle,
