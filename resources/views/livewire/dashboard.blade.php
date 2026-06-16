@@ -1,4 +1,4 @@
-<div class="w-full max-w-6xl">
+<div class="w-full max-w-6xl mx-auto">
     <h1 class="text-2xl font-bold mb-4 text-center">
         Tableau de bord
     </h1>
