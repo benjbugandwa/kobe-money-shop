@@ -159,8 +159,8 @@ class Emprunts extends Component
     {
         $emprunt = Emprunt::findOrFail($empruntId);
 
-        if ($emprunt->user_id === auth()->id()) {
-            $this->toast('error', 'Vous ne pouvez pas modifier votre propre emprunt.');
+        if (! in_array($emprunt->statut_emprunt, ['en_cours', 'en_retard'], true)) {
+            $this->toast('error', 'Cet emprunt est deja rembourse.');
             return;
         }
 
@@ -174,8 +174,11 @@ class Emprunts extends Component
 
         $emprunt = Emprunt::findOrFail($this->empruntIdToUpdate);
 
-        if ($emprunt->user_id === auth()->id()) {
-            abort(403);
+        if (! in_array($emprunt->statut_emprunt, ['en_cours', 'en_retard'], true)) {
+            $this->confirmingStatutChange = false;
+            $this->empruntIdToUpdate = null;
+            $this->toast('error', 'Cet emprunt est deja rembourse.');
+            return;
         }
 
         $emprunt->update([

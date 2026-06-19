@@ -97,7 +97,7 @@
                             @endif
                         </td>
                         <td class="px-6 py-4">
-                            @if (in_array($emprunt->statut_emprunt, ['en_cours', 'en_retard']) && $emprunt->user_id !== auth()->id())
+                            @if (in_array($emprunt->statut_emprunt, ['en_cours', 'en_retard'], true))
                                 <button wire:click="confirmStatutChange({{ $emprunt->id }})"
                                     class="text-sm text-orange-400 hover:text-orange-300">
                                     Marquer rembourse
