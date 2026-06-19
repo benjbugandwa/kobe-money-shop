@@ -15,7 +15,7 @@ class Emprunts extends Component
 {
     use WithPagination;
 
-    protected $paginationTheme = 'bootstrap';
+    protected $paginationTheme = 'tailwind';
 
     public $showModal = false;
     public $user_id;

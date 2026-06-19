@@ -93,7 +93,7 @@
     </div>
 
     <div class="mt-4">
-        {{ $cotisations->links() }}
+        {{ $cotisations->links('components.pagination.dark') }}
     </div>
 
     @if ($showCreateModal)

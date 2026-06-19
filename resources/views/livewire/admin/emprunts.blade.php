@@ -117,7 +117,7 @@
     </div>
 
     <div class="mt-4">
-        {{ $emprunts->links() }}
+        {{ $emprunts->links('components.pagination.dark') }}
     </div>
 
     @if ($showModal)
